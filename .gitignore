@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Vite
+*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Test coverage
+coverage/
+
+# Playwright
+test-results/
+playwright-report/
+
+# Logs
+*.log
+npm-debug.log*
+
+# PWA dev artifacts
+dev-dist/
+sw.js
+workbox-*.js
