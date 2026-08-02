@@ -18,6 +18,8 @@ import { buildNavModel } from '../domain/navConfig';
 const LoginPage = () => import('../ui/LoginPage.vue');
 const PatientListPage = () => import('../ui/PatientListPage.vue');
 const PatientFormPage = () => import('../ui/PatientFormPage.vue');
+const AppointmentListPage = () => import('../ui/AppointmentListPage.vue');
+const TodayDashboard = () => import('../ui/TodayDashboard.vue');
 const NotFoundPage = () => import('../ui/NotFoundPage.vue');
 const UnsupportedBrowserPage = () => import('../ui/UnsupportedBrowserPage.vue');
 
@@ -27,6 +29,7 @@ const UnsupportedBrowserPage = () => import('../ui/UnsupportedBrowserPage.vue');
  */
 const moduleComponentMap: Record<string, () => Promise<unknown>> = {
   patients: PatientListPage,
+  appointments: AppointmentListPage,
 };
 
 /**
@@ -83,6 +86,13 @@ const staticRoutes: RouteRecordRaw[] = [
     name: 'patient-edit',
     component: PatientFormPage,
     meta: { title: 'Cập nhật bệnh nhân' },
+  },
+  // Appointment sub-routes
+  {
+    path: '/appointments/today',
+    name: 'appointments-today',
+    component: TodayDashboard,
+    meta: { title: 'Lịch hẹn hôm nay' },
   },
   // Root redirect to patients (default landing page)
   {

@@ -27,8 +27,14 @@ export const MODULE_CONFIGS: ModuleConfig[] = [
     icon: 'mdi-account-group'
     // No requiredRoles = all authenticated roles allowed
   },
+  { 
+    id: 'appointments', 
+    title: 'Lịch hẹn', 
+    path: '/appointments',
+    icon: 'mdi-calendar-clock'
+    // No requiredRoles = all authenticated roles allowed
+  },
   // Future modules can be added here:
-  // { id: 'appointments', title: 'Lịch hẹn', path: '/appointments', requiredRoles: ['DOCTOR', 'RECEPTIONIST', 'ADMIN'] },
   // { id: 'prescriptions', title: 'Đơn thuốc', path: '/prescriptions', requiredRoles: ['DOCTOR', 'ADMIN'] },
   // { id: 'invoices', title: 'Hóa đơn', path: '/invoices', requiredRoles: ['RECEPTIONIST', 'ADMIN'] },
 ];
