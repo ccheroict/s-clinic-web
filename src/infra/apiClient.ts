@@ -30,11 +30,16 @@ const API_BASE_URL = '/api';
 export const AUTH_EXPIRED_EVENT = 's-clinic:auth-expired';
 
 /**
- * Credentials for HTTP Basic Auth
+ * An issued session token.
+ *
+ * Replaces the previous username/password pair: HTTP Basic put the password on
+ * every request and could not be revoked, which is unacceptable for access to
+ * health records. The backend now issues an opaque token that it can revoke
+ * immediately.
  */
-export interface ApiCredentials {
-  username: string;
-  password: string;
+export interface ApiSession {
+  token: string;
+  expiresAt?: string;
 }
 
 /**
@@ -53,40 +58,38 @@ export interface ApiClientRequest {
  * ApiClient class - wraps fetch for API calls
  */
 export class ApiClient {
-  private credentials: ApiCredentials | null = null;
+  private session: ApiSession | null = null;
 
   /**
-   * Set authentication credentials
-   * @param credentials - Username and password for Basic auth
+   * Set the session token used for subsequent requests.
+   * Kept in memory only, never persisted (R8.4).
    */
-  setCredentials(credentials: ApiCredentials | null): void {
-    this.credentials = credentials;
+  setSession(session: ApiSession | null): void {
+    this.session = session;
   }
 
   /**
-   * Get current credentials
+   * Get the current session
    */
-  getCredentials(): ApiCredentials | null {
-    return this.credentials;
+  getSession(): ApiSession | null {
+    return this.session;
   }
 
   /**
-   * Clear authentication credentials
+   * Clear the session so later requests are unauthenticated
    */
-  clearCredentials(): void {
-    this.credentials = null;
+  clearSession(): void {
+    this.session = null;
   }
 
   /**
    * Build the Authorization header value
    */
   private getAuthHeader(): string | undefined {
-    if (!this.credentials) {
+    if (!this.session) {
       return undefined;
     }
-    const { username, password } = this.credentials;
-    const encoded = btoa(`${username}:${password}`);
-    return `Basic ${encoded}`;
+    return `Bearer ${this.session.token}`;
   }
 
   /**
@@ -157,7 +160,7 @@ export class ApiClient {
       clearTimeout(timeoutId);
 
       // Handle 401 after having session (R4.8)
-      if (response.status === 401 && this.credentials) {
+      if (response.status === 401 && this.session) {
         // Dispatch event for AuthStore to handle
         this.dispatchAuthExpiredEvent();
       }
@@ -251,14 +254,17 @@ export class ApiClient {
   }
 
   /**
-   * Login request - uses shorter timeout (10s per R4.5)
+   * Login request - POST credentials, shorter timeout (10s per R4.5).
+   *
+   * Sent unauthenticated: the whole point is to obtain a token.
    */
-  async login<T>(path: string): Promise<ApiResult<T>> {
-    return this.request<T>({ 
-      method: 'GET', 
-      path, 
+  async login<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
+    return this.request<T>({
+      method: 'POST',
+      path,
+      body,
       isLoginRequest: true,
-      timeoutMs: LOGIN_TIMEOUT_MS 
+      timeoutMs: LOGIN_TIMEOUT_MS,
     });
   }
 }
@@ -286,10 +292,10 @@ export function resetApiClient(): void {
 /**
  * Create a new ApiClient instance (for testing or multiple instances)
  */
-export function createApiClient(credentials?: ApiCredentials): ApiClient {
+export function createApiClient(session?: ApiSession): ApiClient {
   const client = new ApiClient();
-  if (credentials) {
-    client.setCredentials(credentials);
+  if (session) {
+    client.setSession(session);
   }
   return client;
 }

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ApiClient, getApiClient, resetApiClient, AUTH_EXPIRED_EVENT, createApiClient, ApiCredentials } from './apiClient';
+import { ApiClient, getApiClient, resetApiClient, AUTH_EXPIRED_EVENT, createApiClient, ApiSession } from './apiClient';
 import type { ApiResult } from '../domain/types';
 import { isApiOk } from '../domain/types';
 
@@ -39,33 +39,48 @@ afterEach(() => {
 
 describe('ApiClient', () => {
   describe('credentials management', () => {
-    it('should start without credentials', () => {
+    it('should start without a session', () => {
       const client = createApiClient();
-      expect(client.getCredentials()).toBeNull();
+      expect(client.getSession()).toBeNull();
     });
 
-    it('should set and get credentials', () => {
+    it('should set and get the session', () => {
       const client = createApiClient();
-      const creds: ApiCredentials = { username: 'admin', password: 'pass123' };
-      
-      client.setCredentials(creds);
-      expect(client.getCredentials()).toEqual(creds);
+      const session: ApiSession = { token: 'opaque-token', expiresAt: '2026-08-29T12:00:00Z' };
+
+      client.setSession(session);
+      expect(client.getSession()).toEqual(session);
     });
 
-    it('should clear credentials', () => {
+    it('should clear the session', () => {
       const client = createApiClient();
-      const creds: ApiCredentials = { username: 'admin', password: 'pass123' };
-      
-      client.setCredentials(creds);
-      client.clearCredentials();
-      expect(client.getCredentials()).toBeNull();
+
+      client.setSession({ token: 'opaque-token' });
+      client.clearSession();
+      expect(client.getSession()).toBeNull();
+    });
+
+    it('should never expose a password-derived header', async () => {
+      // HTTP Basic is gone: the header must carry an opaque bearer token, never
+      // base64 of username:password.
+      const client = createApiClient({ token: 'opaque-token' });
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      await client.get('/facility');
+
+      const headers = fetchMock.mock.calls[0][1].headers as Record<string, string>;
+      expect(headers.Authorization).toBe('Bearer opaque-token');
+      expect(headers.Authorization).not.toMatch(/^Basic /);
     });
   });
 
   describe('auth header generation', () => {
-    it('should generate correct Basic auth header', async () => {
-      const client = createApiClient({ username: 'admin', password: 'password' });
-      
+    it('should generate a Bearer auth header from the session token', async () => {
+      const client = createApiClient({ token: 'opaque-session-token' });
+
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
         new Response(JSON.stringify({ ok: true }), { status: 200 })
       );
@@ -76,13 +91,13 @@ describe('ApiClient', () => {
         expect.any(String),
         expect.objectContaining({
           headers: expect.objectContaining({
-            'Authorization': 'Basic YWRtaW46cGFzc3dvcmQ=',
+            'Authorization': 'Bearer opaque-session-token',
           }),
         })
       );
     });
 
-    it('should not include auth header when no credentials', async () => {
+    it('should not include auth header when there is no session', async () => {
       const client = createApiClient();
       
       (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
@@ -273,7 +288,7 @@ describe('ApiClient', () => {
 
   describe('401 event dispatching', () => {
     it('should dispatch auth-expired event on 401 after having session', async () => {
-      const client = createApiClient({ username: 'admin', password: 'pass' });
+      const client = createApiClient({ token: 'opaque-token' });
       const eventSpy = vi.fn();
       
       document.addEventListener(AUTH_EXPIRED_EVENT, eventSpy);

@@ -12,8 +12,8 @@
 
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 import { useAuthStore } from './authStore';
-import { canAccessPath, type ModuleConfig } from '../domain/navConfig';
-import type { UserRole } from '../domain/types';
+import { canAccessPath } from '../domain/navConfig';
+import type { ModuleConfig, UserRole } from '../domain/types';
 
 /**
  * Configuration for module navigation
@@ -40,10 +40,15 @@ export const MODULE_CONFIGS: ModuleConfig[] = [
 ];
 
 /**
- * Paths that require authentication
- * Add any public paths that shouldn't require login here
+ * Paths reachable without a full session.
+ *
+ * Besides /login this covers the half-finished-login screens: an account holding
+ * an interim token has proved something but not everything, and needs to reach
+ * exactly one screen to clear the remaining gate. Each of those pages verifies
+ * its own gate is open and sends the user back to /login otherwise, so listing
+ * them here does not expose anything.
  */
-const PUBLIC_PATHS = ['/login', '/'];
+const PUBLIC_PATHS = ['/login', '/', '/change-password', '/mfa-enroll', '/mfa-verify'];
 
 /**
  * Check if a path is public (doesn't require authentication)

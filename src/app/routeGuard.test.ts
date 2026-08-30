@@ -15,8 +15,8 @@ import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router';
 // Mock dependencies
 vi.mock('../infra/apiClient', () => ({
   getApiClient: () => ({
-    setCredentials: vi.fn(),
-    clearCredentials: vi.fn(),
+    setSession: vi.fn(),
+    clearSession: vi.fn(),
     get: vi.fn(),
     login: vi.fn(),
   }),

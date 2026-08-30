@@ -105,7 +105,9 @@ export function validateLoginForm(username: string, password: string): LoginVali
     return { ok: true };
   }
 
-  const errors: LoginValidationResult['errors'] = {};
+  // Must reference the failure branch: LoginValidationResult is a union and the
+  // success branch has no `errors`.
+  const errors: LoginValidationFailure['errors'] = {};
 
   for (const issue of result.error.issues) {
     const path = issue.path[0];

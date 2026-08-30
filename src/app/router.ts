@@ -13,9 +13,13 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { createRouteGuard, MODULE_CONFIGS } from './routeGuard';
 import { buildNavModel } from '../domain/navConfig';
+import type { ModuleConfig } from '../domain/types';
 
 // Lazy-loaded page components
 const LoginPage = () => import('../ui/LoginPage.vue');
+const ChangePasswordPage = () => import('../ui/ChangePasswordPage.vue');
+const MfaEnrollPage = () => import('../ui/MfaEnrollPage.vue');
+const MfaVerifyPage = () => import('../ui/MfaVerifyPage.vue');
 const PatientListPage = () => import('../ui/PatientListPage.vue');
 const PatientFormPage = () => import('../ui/PatientFormPage.vue');
 const AppointmentListPage = () => import('../ui/AppointmentListPage.vue');
@@ -27,7 +31,9 @@ const UnsupportedBrowserPage = () => import('../ui/UnsupportedBrowserPage.vue');
  * Map module IDs to their page components
  * When adding new modules, register their components here.
  */
-const moduleComponentMap: Record<string, () => Promise<unknown>> = {
+// Partial: a module listed in MODULE_CONFIGS may not have a page yet, so the
+// lookup below has to treat a miss as "skip this route".
+const moduleComponentMap: Partial<Record<string, () => Promise<unknown>>> = {
   patients: PatientListPage,
   appointments: AppointmentListPage,
 };
@@ -73,6 +79,28 @@ const staticRoutes: RouteRecordRaw[] = [
     name: 'unsupported-browser',
     component: UnsupportedBrowserPage,
     meta: { public: true },
+  },
+  // The three half-finished-login screens. Each is reached while holding an
+  // interim token, which is not a full session, so the auth guard must not
+  // bounce them back to /login. Each page checks for itself that the matching
+  // gate is actually open.
+  {
+    path: '/change-password',
+    name: 'change-password',
+    component: ChangePasswordPage,
+    meta: { public: true, title: 'Đổi mật khẩu' },
+  },
+  {
+    path: '/mfa-enroll',
+    name: 'mfa-enroll',
+    component: MfaEnrollPage,
+    meta: { public: true, title: 'Thiết lập xác thực hai bước' },
+  },
+  {
+    path: '/mfa-verify',
+    name: 'mfa-verify',
+    component: MfaVerifyPage,
+    meta: { public: true, title: 'Xác thực hai bước' },
   },
   // Patient sub-routes (create/edit)
   {

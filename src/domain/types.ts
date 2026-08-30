@@ -9,12 +9,27 @@
 export type UserRole = 'DOCTOR' | 'RECEPTIONIST' | 'ADMIN';
 
 /**
+ * What a session token is allowed to do.
+ *
+ * Only FULL reaches business endpoints. The others are half-finished logins:
+ * the account has proved something but not everything, and the token is only
+ * accepted by the auth endpoint that clears the remaining step.
+ */
+export type TokenScope = 'FULL' | 'CHANGE_PASSWORD' | 'MFA_PENDING' | 'ENROLL_MFA';
+
+/**
  * Authentication session information
  */
 export interface AuthSession {
   authHeader: string;
   username: string;
   role: UserRole;
+}
+
+/** What the client needs to set up an authenticator app. */
+export interface MfaEnrolment {
+  secret: string;
+  provisioningUri: string;
 }
 
 /**

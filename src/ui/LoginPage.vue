@@ -85,7 +85,8 @@
  * Responsibilities:
  * - v-form + v-text-field for username/password
  * - Validate via validateLoginForm (Zod schema) - R4.1
- * - Call useAuthStore.login() on submit - R4.3
+ * - Call useAuthStore.login(username, password) on submit - R4.3
+ * - Route to /change-password when the account must rotate its password
  * - Display authentication errors (R4.4) and connection errors (R4.5)
  *
  * Validates: Requirements 4.1, 4.3, 4.4, 4.5
@@ -165,15 +166,22 @@ async function handleSubmit(): Promise<void> {
   isLoading.value = true;
 
   try {
-    // Set credentials in auth store
-    authStore.setCredentials(username.value, password.value);
-
-    // R4.3: Call login - GET /api/me with Basic auth
-    const success = await authStore.login();
+    // R4.3: exchange credentials for a session token (POST /api/auth/login)
+    const success = await authStore.login(username.value, password.value);
 
     if (success) {
       // R4.3: Navigate to main screen on success
       await router.push('/');
+      return;
+    }
+
+    const pendingStep = authStore.pendingStepPath();
+
+    if (pendingStep) {
+      // The password was correct but a gate is still open: a second factor to
+      // set up or answer, or a password rotation. Not an error state.
+      password.value = '';
+      await router.push(pendingStep);
     } else {
       // Handle error from authStore
       const storeError = authStore.error;

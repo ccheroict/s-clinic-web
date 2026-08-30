@@ -28,8 +28,8 @@ vi.mock('../infra/apiClient', () => {
     post: vi.fn(),
     put: vi.fn(),
     delete: vi.fn(),
-    setCredentials: vi.fn(),
-    clearCredentials: vi.fn(),
+    setSession: vi.fn(),
+    clearSession: vi.fn(),
   };
   return {
     getApiClient: () => mockApiClient,
