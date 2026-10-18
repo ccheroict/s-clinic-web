@@ -22,6 +22,7 @@ const MfaEnrollPage = () => import('../ui/MfaEnrollPage.vue');
 const MfaVerifyPage = () => import('../ui/MfaVerifyPage.vue');
 const PatientListPage = () => import('../ui/PatientListPage.vue');
 const PatientFormPage = () => import('../ui/PatientFormPage.vue');
+const ConsentCapturePage = () => import('../ui/ConsentCapturePage.vue');
 const AppointmentListPage = () => import('../ui/AppointmentListPage.vue');
 const TodayDashboard = () => import('../ui/TodayDashboard.vue');
 const NotFoundPage = () => import('../ui/NotFoundPage.vue');
@@ -114,6 +115,16 @@ const staticRoutes: RouteRecordRaw[] = [
     name: 'patient-edit',
     component: PatientFormPage,
     meta: { title: 'Cập nhật bệnh nhân' },
+  },
+  // Consent, on its own screen rather than a tab on the patient form. It is
+  // worked through once when a patient is received, and returned to only to
+  // record a withdrawal; folding it into the edit form would mean a withdrawal
+  // shares a save button with a change of address.
+  {
+    path: '/patients/:id/consents',
+    name: 'patient-consents',
+    component: ConsentCapturePage,
+    meta: { title: 'Sự đồng ý của bệnh nhân' },
   },
   // Appointment sub-routes
   {

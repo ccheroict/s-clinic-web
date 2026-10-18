@@ -27,6 +27,23 @@
               @mark-reviewed="markAllergiesReviewed"
             />
 
+            <!--
+              Consent lives on its own screen. Linked from here because this is
+              where someone lands with a patient in front of them, and a consent
+              nobody can find is a consent nobody collects.
+            -->
+            <div v-if="isEditMode" class="mb-4">
+              <v-btn
+                variant="tonal"
+                size="small"
+                prepend-icon="mdi-file-sign"
+                data-testid="patient-consents-link"
+                @click="goToConsents"
+              >
+                Sự đồng ý của bệnh nhân
+              </v-btn>
+            </div>
+
             <!-- Server error alert (R6.10: non-validation error) -->
             <v-alert
               v-if="serverError"
@@ -374,6 +391,12 @@ function clearAllErrors(): void {
  */
 function goBack(): void {
   router.push('/patients');
+}
+
+function goToConsents(): void {
+  if (patientId.value) {
+    router.push(`/patients/${patientId.value}/consents`);
+  }
 }
 
 /**

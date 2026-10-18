@@ -264,3 +264,100 @@ export function unwrapApiResult<T>(result: ApiResult<T>): T {
   }
   return result.data;
 }
+
+// ---------- Consent (requirements 11.1–11.7) ----------
+
+/** The kinds of consent the clinic collects. Fixed by requirement 11.1. */
+export type ConsentTypeCode =
+  | 'TREATMENT'
+  | 'SENSITIVE_DATA'
+  | 'CLINICAL_PHOTO'
+  | 'PHOTO_TRAINING'
+  | 'PHOTO_MARKETING'
+  | 'APPOINTMENT_REMINDER'
+  | 'PROCEDURE';
+
+/**
+ * How a consent was obtained.
+ *
+ * VERBAL is the weakest evidence and is named rather than folded into the
+ * others, so that choosing it is a visible decision.
+ */
+export type ConsentCollectionMethod =
+  | 'PAPER'
+  | 'IN_PERSON_DIGITAL'
+  | 'REMOTE_DIGITAL'
+  | 'VERBAL';
+
+/**
+ * Where a patient stands on one consent type (ConsentStatusResponse).
+ *
+ * Returned for every type, including those with nothing recorded: a list of what
+ * has been collected cannot show what is missing.
+ */
+export interface ConsentStatus {
+  typeCode: ConsentTypeCode;
+  typeName: string;
+  description: string | null;
+
+  /** Covers sensitive personal data under NĐ 13/2023. */
+  sensitive: boolean;
+
+  /** Care may not proceed without it. Marketing consent never blocks care. */
+  blocksCare: boolean;
+
+  /**
+   * The clinic has published no wording for this type, so consent cannot be
+   * collected at all.
+   *
+   * An administrator's problem, not the patient's. Shown differently from
+   * "not granted" because chasing a signature will not fix it.
+   */
+  notConfigured: boolean;
+
+  currentVersion: number | null;
+  granted: boolean;
+
+  /** Consent was given against older wording than what is now in force. */
+  supersededWording: boolean;
+
+  grantedAt: string | null;
+  withdrawnAt: string | null;
+}
+
+/** One consent record (ConsentRecordResponse). */
+export interface ConsentRecordView {
+  id: string;
+  patientId: string;
+  typeCode: ConsentTypeCode;
+  typeName: string;
+  version: number;
+  purpose: string;
+  grantedAt: string;
+  collectionMethod: ConsentCollectionMethod;
+  evidence: string | null;
+  live: boolean;
+  withdrawnAt: string | null;
+  withdrawalNote: string | null;
+  supersededAt: string | null;
+}
+
+/** A version of the wording shown to a patient (ConsentVersionResponse). */
+export interface ConsentVersion {
+  id: string;
+  typeCode: ConsentTypeCode;
+  typeName: string;
+  version: number;
+  content: string;
+
+  /**
+   * The statement that the data is sensitive personal data, where the type calls
+   * for one. Its own field so the UI can put it where it will be read.
+   */
+  sensitivityNotice: string | null;
+
+  purpose: string;
+  sensitive: boolean;
+  effectiveFrom: string;
+  publishedAt: string;
+}

@@ -64,6 +64,14 @@ export function classifyResponse(status: number, body?: unknown): ApiResult<unkn
   }
 
   // 500-599 Server errors - don't leak technical details
+  //
+  // No exception is carved out for 503, though it was tempting: the backend
+  // returns one when a consent type has no published wording, and that message
+  // names the thing an administrator has to do. But this function cannot tell a
+  // ProblemDetail the application wrote from a 503 produced by a proxy or a
+  // container, and the second kind carries internals. The consent screen gets
+  // the same information from a safer place — the status endpoint reports
+  // notConfigured per type — so the rule here stays absolute.
   if (status >= 500 && status <= 599) {
     return {
       ok: false,
