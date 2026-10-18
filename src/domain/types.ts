@@ -51,6 +51,47 @@ export interface Patient {
   taxCode: string | null;
   createdAt: string;
   updatedAt: string;
+
+  /**
+   * This patient's allergy information exists only as prose, and no clinician
+   * has yet turned it into coded records.
+   *
+   * Worth surfacing because a record whose allergies are a sentence looks
+   * exactly like one with no allergies at all unless the UI says otherwise.
+   */
+  allergyReviewRequired: boolean;
+
+  /** The original free-text allergies, kept verbatim, for whoever reviews them. */
+  allergyLegacyNote: string | null;
+}
+
+/** How bad a reaction was. Decides whether prescribing is warned about or stopped. */
+export type AllergySeverity = 'MILD' | 'MODERATE' | 'SEVERE';
+
+/** How well established the allergy is. Independent of how severe it is. */
+export type AllergyCertainty = 'SUSPECTED' | 'REPORTED' | 'CONFIRMED';
+
+/**
+ * One substance a patient reacts to (AllergyResponse).
+ *
+ * Carries the allergen's code and its name: the code is what a check matches on,
+ * the name is what a clinician reads.
+ */
+export interface Allergy {
+  id: string;
+  patientId: string;
+  allergenCode: string;
+  allergenName: string;
+  allergenCategory: string;
+  reaction: string | null;
+  severity: AllergySeverity;
+  /** Derived from severity by the backend, so it cannot drift from it. */
+  severe: boolean;
+  certainty: AllergyCertainty;
+  recordedOn: string;
+  active: boolean;
+  inactivationReason: string | null;
+  note: string | null;
 }
 
 /**

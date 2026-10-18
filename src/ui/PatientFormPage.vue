@@ -11,6 +11,22 @@
           </v-toolbar>
 
           <v-card-text :class="mobile ? 'pa-3' : 'pa-4'">
+            <!--
+              Requirement 10.4: a severe allergy is announced before anything
+              else on the chart, above the transient error alerts and above the
+              form. It is the one thing on this page that changes what the
+              clinician is allowed to do next, so it does not sit below the
+              demographic fields and it has no dismiss button.
+            -->
+            <AllergyWarningBanner
+              v-if="isEditMode"
+              :patient="loadedPatient"
+              :allergies="allergiesQuery.data.value ?? null"
+              :can-review="canReviewAllergies"
+              :review-pending="markReviewedMutation.isPending.value"
+              @mark-reviewed="markAllergiesReviewed"
+            />
+
             <!-- Server error alert (R6.10: non-validation error) -->
             <v-alert
               v-if="serverError"
@@ -150,14 +166,23 @@
                 @input="clearFieldError('medicalHistory')"
               />
 
-              <!-- Dị ứng -->
+              <!--
+                The legacy free-text allergy field. Still here because removing
+                it would lose the only place a clinician can note something the
+                allergen catalogue has no code for, but labelled so nobody
+                believes typing here protects the patient: prose is invisible to
+                the check that runs when a drug is prescribed, and anything
+                entered here marks the record as needing review.
+              -->
               <v-textarea
                 v-model="form.allergies"
-                label="Dị ứng"
+                label="Dị ứng (ghi chú, không tự động kiểm tra)"
+                hint="Để hệ thống chặn kê thuốc gây dị ứng, hãy ghi dị ứng có mã trong hồ sơ bệnh nhân. Nội dung ở đây sẽ được đánh dấu cần rà soát."
+                persistent-hint
                 :error-messages="fieldErrors.allergies ? [fieldErrors.allergies] : []"
                 :disabled="isPending"
                 rows="2"
-                class="mb-2"
+                class="mb-4"
                 @input="clearFieldError('allergies')"
               />
 
@@ -225,20 +250,56 @@
  */
 
 import { ref, reactive, computed, onMounted } from 'vue';
+import AllergyWarningBanner from './AllergyWarningBanner.vue';
 import BreakGlassDialog from './BreakGlassDialog.vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useDisplay } from 'vuetify';
 import type { PatientFormInput, Patient } from '../domain/types';
 import { validatePatientForm } from '../domain/validators';
 import { useCreatePatient, useUpdatePatient } from '../app/patientQueries';
+import {
+  useMarkAllergiesReviewed,
+  usePatientAllergies,
+} from '../app/allergyQueries';
+import { useAuthStore } from '../app/authStore';
+import { canConfirmAllergyReview } from '../domain/allergyWarning';
 import { getApiClient } from '../infra/apiClient';
 
 const route = useRoute();
 const router = useRouter();
 const { mobile } = useDisplay();
+const auth = useAuthStore();
 
 // Determine if this is edit mode based on route param
 const patientId = computed(() => route.params.id as string | undefined);
+
+// ---------- allergies (requirement 10.4) ----------
+
+/**
+ * The patient as the server returned it, kept beside the editable form.
+ *
+ * The form holds what the user is typing; the banner has to reflect what is on
+ * file. Reading the review flag off the form would mean the warning disappeared
+ * as soon as someone edited a field, which is the moment it matters most.
+ */
+const loadedPatient = ref<Patient | null>(null);
+
+const allergyPatientId = computed(() => patientId.value ?? null);
+const allergiesQuery = usePatientAllergies(allergyPatientId);
+const markReviewedMutation = useMarkAllergiesReviewed(allergyPatientId);
+
+/** Confirming the review asserts a clinician read the prose, so not receptionists. */
+const canReviewAllergies = computed(() => canConfirmAllergyReview(auth.currentRole));
+
+async function markAllergiesReviewed(): Promise<void> {
+  try {
+    await markReviewedMutation.mutateAsync();
+    await loadPatient();
+  } catch {
+    // The banner stays up, which is the safe outcome: it is better to ask for a
+    // review twice than to record one that did not happen.
+  }
+}
 
 /** Shown when the server refuses the record but offers break-glass access. */
 const showBreakGlass = ref(false);
@@ -327,6 +388,7 @@ async function loadPatient(): Promise<void> {
 
     if (result.ok) {
       const patient = result.data;
+      loadedPatient.value = patient;
       form.code = patient.code || '';
       form.fullName = patient.fullName;
       form.dob = patient.dob || null;
