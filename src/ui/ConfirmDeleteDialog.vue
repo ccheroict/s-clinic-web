@@ -6,19 +6,36 @@
   >
     <v-card>
       <v-card-title class="text-h6">
-        Xác nhận xóa bệnh nhân
+        Ngừng sử dụng hồ sơ bệnh nhân
       </v-card-title>
 
       <v-card-text>
         <p v-if="patientName">
-          Bạn có chắc chắn muốn xóa bệnh nhân <strong>{{ patientName }}</strong>?
+          Ngừng sử dụng hồ sơ của <strong>{{ patientName }}</strong>?
         </p>
         <p v-else>
-          Bạn có chắc chắn muốn xóa bệnh nhân này?
+          Ngừng sử dụng hồ sơ bệnh nhân này?
         </p>
         <p class="text-caption text-medium-emphasis mt-2">
-          Thao tác này không thể hoàn tác.
+          Hồ sơ sẽ không còn xuất hiện trong danh sách và tìm kiếm, nhưng
+          <strong>không bị xóa khỏi hệ thống</strong> — phòng khám có nghĩa vụ lưu
+          trữ hồ sơ bệnh án theo thời hạn luật định.
         </p>
+
+        <v-textarea
+          v-model="reason"
+          label="Lý do"
+          :error-messages="reasonError ? [reasonError] : []"
+          :disabled="isPending"
+          rows="2"
+          auto-grow
+          counter="500"
+          maxlength="500"
+          class="mt-3"
+          hint="Bắt buộc. Lý do được lưu cùng hồ sơ để có thể soát lại về sau."
+          persistent-hint
+          @input="reasonError = ''"
+        />
 
         <!-- Error message if delete fails -->
         <v-alert
@@ -48,7 +65,7 @@
           :disabled="isPending"
           @click="handleConfirmDelete"
         >
-          Xóa
+          Ngừng sử dụng
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -97,6 +114,10 @@ const { mutateAsync: deletePatient, isPending } = useDeletePatient();
 /** Error message from delete attempt */
 const deleteErrorMessage = ref('');
 
+/** Why the record is being withdrawn. Mandatory; the server rejects a blank. */
+const reason = ref('');
+const reasonError = ref('');
+
 /** Computed v-model for dialog visibility */
 const dialogVisible = computed({
   get: () => props.modelValue,
@@ -107,6 +128,8 @@ const dialogVisible = computed({
 watch(dialogVisible, (visible) => {
   if (visible) {
     deleteErrorMessage.value = '';
+    reason.value = '';
+    reasonError.value = '';
   }
 });
 
@@ -126,16 +149,23 @@ async function handleConfirmDelete(): Promise<void> {
     return;
   }
 
+  if (!reason.value.trim()) {
+    reasonError.value = 'Vui lòng nhập lý do';
+    return;
+  }
+
   deleteErrorMessage.value = '';
 
   try {
-    await deletePatient(props.patientId);
+    await deletePatient({ id: props.patientId, reason: reason.value.trim() });
     // Success: close dialog and emit deleted event
     dialogVisible.value = false;
     emit('deleted');
   } catch (err: any) {
     // Handle error cases
-    if (err?.status === 'forbidden') {
+    if (err?.status === 'validation') {
+      reasonError.value = 'Lý do không được để trống';
+    } else if (err?.status === 'forbidden') {
       deleteErrorMessage.value = 'Bạn không đủ quyền thực hiện thao tác này.';
     } else if (err?.status === 'network') {
       deleteErrorMessage.value = 'Lỗi kết nối. Vui lòng kiểm tra mạng và thử lại.';

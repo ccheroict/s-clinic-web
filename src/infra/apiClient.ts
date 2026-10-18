@@ -247,10 +247,15 @@ export class ApiClient {
   }
 
   /**
-   * Convenience method for DELETE requests
+   * Convenience method for DELETE requests.
+   *
+   * @param body optional payload. Withdrawing a patient record requires a
+   *             reason, which the server will not accept in the query string:
+   *             the reason can describe the patient's circumstances, and query
+   *             strings end up in access logs.
    */
-  async delete<T>(path: string): Promise<ApiResult<T>> {
-    return this.request<T>({ method: 'DELETE', path });
+  async delete<T>(path: string, body?: unknown): Promise<ApiResult<T>> {
+    return this.request<T>({ method: 'DELETE', path, body });
   }
 
   /**

@@ -308,20 +308,25 @@ describe('useDeletePatient', () => {
     vi.clearAllMocks();
   });
 
-  it('sends DELETE /patients/{id}', async () => {
+  it('sends DELETE /patients/{id} with the reason for withdrawal', async () => {
     const mock = getMockApiClient();
     mock.delete.mockResolvedValue({ ok: true, data: undefined });
 
     const { result, queryClient } = withSetup(() => useDeletePatient());
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
 
-    result.mutate(mockPatient.id);
+    result.mutate({ id: mockPatient.id, reason: 'Nhap trung ban ghi' });
 
     await vi.waitFor(() => {
       expect(mock.delete).toHaveBeenCalled();
     });
 
-    expect(mock.delete).toHaveBeenCalledWith(`/patients/${mockPatient.id}`);
+    // The reason travels in the body, not the query string: it can describe the
+    // patient's circumstances, and query strings end up in access logs.
+    expect(mock.delete).toHaveBeenCalledWith(
+      `/patients/${mockPatient.id}`,
+      { reason: 'Nhap trung ban ghi' }
+    );
 
     // Should invalidate list cache
     await vi.waitFor(() => {
@@ -338,7 +343,7 @@ describe('useDeletePatient', () => {
 
     const { result } = withSetup(() => useDeletePatient());
 
-    result.mutate('some-id');
+    result.mutate({ id: 'some-id', reason: 'khong duoc phep' });
 
     await vi.waitFor(() => {
       expect(result.isError.value).toBe(true);

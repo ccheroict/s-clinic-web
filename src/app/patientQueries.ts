@@ -131,8 +131,20 @@ export function useUpdatePatient() {
   });
 }
 
+/** What the server needs to withdraw a patient record. */
+export interface PatientWithdrawal {
+  id: string;
+  /** Required; the server rejects a blank reason. */
+  reason: string;
+}
+
 /**
- * useDeletePatient - Mutation for deleting a patient (ADMIN only)
+ * useDeletePatient - Mutation for withdrawing a patient record (ADMIN only)
+ *
+ * This does not delete anything. The clinic has a statutory duty to keep
+ * medical records, so the server marks the record withdrawn and it disappears
+ * from the API while the row and its history remain. A reason is mandatory
+ * because the decision has to be reviewable afterwards.
  *
  * Exposes `isPending` to disable delete button while waiting (R6.8).
  * Invalidates patient list cache on success.
@@ -142,10 +154,10 @@ export function useUpdatePatient() {
 export function useDeletePatient() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, unknown, string>({
-    mutationFn: async (id: string) => {
+  return useMutation<void, unknown, PatientWithdrawal>({
+    mutationFn: async ({ id, reason }: PatientWithdrawal) => {
       const apiClient = getApiClient();
-      const result = await apiClient.delete<void>(`/patients/${id}`);
+      const result = await apiClient.delete<void>(`/patients/${id}`, { reason });
 
       if (result.ok) {
         return;
