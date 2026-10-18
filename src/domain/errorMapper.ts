@@ -31,11 +31,26 @@ export function classifyResponse(status: number, body?: unknown): ApiResult<unkn
 
   // 403 Forbidden
   if (status === 403) {
-    return {
+    const problem = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+
+    // The server's own wording is kept when it has some. A generic "you do not
+    // have permission" is right for most refusals, but the patient-access one
+    // explains what to do next, and replacing that with boilerplate throws away
+    // the only part the clinician can act on.
+    const detail = typeof problem.detail === 'string' && problem.detail.trim()
+      ? problem.detail
+      : 'You do not have permission to perform this action';
+
+    const result: ApiResult<unknown> = {
       ok: false,
       status: 'forbidden',
-      message: 'You do not have permission to perform this action',
+      message: detail,
     };
+
+    if (typeof problem.breakGlassPath === 'string') {
+      result.breakGlassPath = problem.breakGlassPath;
+    }
+    return result;
   }
 
   // 400 Bad Request - Validation errors

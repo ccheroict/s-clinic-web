@@ -200,6 +200,12 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <BreakGlassDialog
+      v-model="showBreakGlass"
+      :patient-id="patientId ?? null"
+      @granted="handleAccessGranted"
+    />
   </v-container>
 </template>
 
@@ -219,6 +225,7 @@
  */
 
 import { ref, reactive, computed, onMounted } from 'vue';
+import BreakGlassDialog from './BreakGlassDialog.vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useDisplay } from 'vuetify';
 import type { PatientFormInput, Patient } from '../domain/types';
@@ -232,6 +239,9 @@ const { mobile } = useDisplay();
 
 // Determine if this is edit mode based on route param
 const patientId = computed(() => route.params.id as string | undefined);
+
+/** Shown when the server refuses the record but offers break-glass access. */
+const showBreakGlass = ref(false);
 const isEditMode = computed(() => !!patientId.value);
 
 // Mutation composables
@@ -332,13 +342,28 @@ async function loadPatient(): Promise<void> {
     } else if (result.status === 'network') {
       networkErrorMsg.value = result.message;
     } else if (result.status === 'forbidden') {
-      forbiddenError.value = result.message;
+      // The server refuses a doctor the records of patients they do not treat,
+      // and when it does it says whether break-glass is available. Offering that
+      // here rather than showing a dead end is the point: a clinician who
+      // believes the door is simply shut will find another way in, and the other
+      // ways are worse than an opened door with a name against it.
+      if (result.breakGlassPath) {
+        showBreakGlass.value = true;
+      } else {
+        forbiddenError.value = result.message;
+      }
     } else {
       serverError.value = 'Không thể tải thông tin bệnh nhân.';
     }
   } catch {
     serverError.value = 'Không thể tải thông tin bệnh nhân.';
   }
+}
+
+/** Access was granted; load the record the user was asking for. */
+async function handleAccessGranted(): Promise<void> {
+  forbiddenError.value = '';
+  await loadPatient();
 }
 
 /**

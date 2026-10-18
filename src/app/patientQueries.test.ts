@@ -17,7 +17,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, nextTick } from 'vue';
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query';
 import { createApp, defineComponent } from 'vue';
-import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, patientKeys } from './patientQueries';
+import { usePatients, useCreatePatient, useUpdatePatient, useDeletePatient, useBreakGlass, patientKeys } from './patientQueries';
 import * as apiClientModule from '../infra/apiClient';
 import type { Page, Patient } from '../domain/types';
 
@@ -300,6 +300,70 @@ describe('useUpdatePatient', () => {
         expect.objectContaining({ queryKey: patientKeys.detail(mockPatient.id) })
       );
     });
+  });
+});
+
+describe('useBreakGlass', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sends the reason to the break-glass endpoint', async () => {
+    const mock = getMockApiClient();
+    mock.post.mockResolvedValue({ ok: true, data: undefined });
+
+    const { result } = withSetup(() => useBreakGlass());
+
+    result.mutate({ patientId: mockPatient.id, reason: 'Benh nhan cap cuu ngoai gio' });
+
+    await vi.waitFor(() => {
+      expect(mock.post).toHaveBeenCalled();
+    });
+
+    expect(mock.post).toHaveBeenCalledWith(
+      `/patients/${mockPatient.id}/break-glass`,
+      { reason: 'Benh nhan cap cuu ngoai gio' }
+    );
+  });
+
+  /**
+   * Both change on success: the record becomes readable, and the patient joins
+   * the doctor's list. Leaving the list stale would show the doctor a patient
+   * they can now open but cannot find.
+   */
+  it('refreshes both the record and the list', async () => {
+    const mock = getMockApiClient();
+    mock.post.mockResolvedValue({ ok: true, data: undefined });
+
+    const { result, queryClient } = withSetup(() => useBreakGlass());
+    const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries');
+
+    result.mutate({ patientId: mockPatient.id, reason: 'Benh nhan cap cuu ngoai gio' });
+
+    await vi.waitFor(() => {
+      expect(invalidateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ queryKey: patientKeys.detail(mockPatient.id) })
+      );
+    });
+    expect(invalidateSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ queryKey: patientKeys.lists() })
+    );
+  });
+
+  it('throws the error result when the reason is refused', async () => {
+    const mock = getMockApiClient();
+    const errorResult = { ok: false, status: 'validation', errors: { reason: ['too short'] } };
+    mock.post.mockResolvedValue(errorResult);
+
+    const { result } = withSetup(() => useBreakGlass());
+
+    result.mutate({ patientId: mockPatient.id, reason: 'ngan' });
+
+    await vi.waitFor(() => {
+      expect(result.isError.value).toBe(true);
+    });
+
+    expect(result.error.value).toEqual(errorResult);
   });
 });
 

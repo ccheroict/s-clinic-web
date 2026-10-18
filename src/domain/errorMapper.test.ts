@@ -60,6 +60,47 @@ describe('errorMapper - Property 9: Phân loại mã trạng thái HTTP thành h
       );
     });
 
+    /**
+     * Most refusals deserve the generic wording, but the patient-access one
+     * explains what to do next. Replacing that with boilerplate throws away the
+     * only part the clinician can act on.
+     */
+    it('giữ lại lời giải thích của server khi có', () => {
+      const result = classifyResponse(403, {
+        detail: 'You have no treating relationship with this patient.',
+        breakGlassPath: '/api/patients/abc/break-glass',
+      });
+
+      expect(result.message).toContain('treating relationship');
+    });
+
+    it('mang theo đường dẫn break-glass để UI mời nhập lý do', () => {
+      const result = classifyResponse(403, {
+        detail: 'No treating relationship.',
+        breakGlassPath: '/api/patients/abc/break-glass',
+      });
+
+      expect((result as { breakGlassPath?: string }).breakGlassPath)
+        .toBe('/api/patients/abc/break-glass');
+    });
+
+    it('không bịa ra đường dẫn break-glass khi server không nêu', () => {
+      const result = classifyResponse(403, { detail: 'Admins only.' });
+
+      // A refusal with no way through must not look like one that has a key.
+      expect((result as { breakGlassPath?: string }).breakGlassPath).toBeUndefined();
+    });
+
+    it('dùng lời chung khi server không giải thích gì', () => {
+      const result = classifyResponse(403, {});
+
+      expect(result.message).toContain('permission');
+    });
+
+    it('bỏ qua detail rỗng hoặc chỉ có khoảng trắng', () => {
+      expect(classifyResponse(403, { detail: '   ' }).message).toContain('permission');
+    });
+
     it('fc: chỉ có mã 403 mới trả về forbidden', () => {
       fc.assert(
         fc.property(

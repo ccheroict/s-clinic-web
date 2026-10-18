@@ -141,6 +141,17 @@ export interface ApiForbidden {
   ok: false;
   status: 'forbidden';
   message: string;
+
+  /**
+   * Present when the server refused a patient record but offered a way through:
+   * the doctor has no treating relationship, and break-glass access is available
+   * in exchange for a stated reason.
+   *
+   * <p>Carried rather than flattened into a generic message because a refusal
+   * that does not say how to proceed, at the moment a clinician needs a record,
+   * invites the worst available workaround: borrowing a colleague's login.
+   */
+  breakGlassPath?: string;
 }
 
 /**

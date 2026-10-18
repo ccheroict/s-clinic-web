@@ -131,6 +131,49 @@ export function useUpdatePatient() {
   });
 }
 
+/** A request for temporary access to a patient the doctor does not treat. */
+export interface BreakGlassAccess {
+  patientId: string;
+  /** Required; the server rejects anything shorter than ten characters. */
+  reason: string;
+}
+
+/**
+ * useBreakGlass - Mutation for requesting temporary access to one patient
+ *
+ * A doctor sees only the patients they treat. When they need a record they have
+ * no treating relationship with, this grants time-limited access in exchange for
+ * a stated reason. The grant is recorded under its own audit action and the
+ * administrators are notified, so it is deliberately easy to do and impossible
+ * to do quietly.
+ *
+ * Invalidates the patient's detail and the list, because both change: the record
+ * becomes readable and the patient joins the doctor's list.
+ */
+export function useBreakGlass() {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, unknown, BreakGlassAccess>({
+    mutationFn: async ({ patientId, reason }: BreakGlassAccess) => {
+      const apiClient = getApiClient();
+      const result = await apiClient.post<void>(
+        `/patients/${patientId}/break-glass`,
+        { reason }
+      );
+
+      if (result.ok) {
+        return;
+      }
+
+      throw result;
+    },
+    onSuccess: (_data, { patientId }) => {
+      queryClient.invalidateQueries({ queryKey: patientKeys.detail(patientId) });
+      queryClient.invalidateQueries({ queryKey: patientKeys.lists() });
+    },
+  });
+}
+
 /** What the server needs to withdraw a patient record. */
 export interface PatientWithdrawal {
   id: string;
