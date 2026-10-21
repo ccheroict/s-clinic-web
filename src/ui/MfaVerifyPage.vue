@@ -145,6 +145,16 @@ async function handleSubmit(): Promise<void> {
     return;
   }
 
+  // A pending login lives ten minutes. Someone who leaves this screen open over
+  // a break comes back to a dead token, and keeping them here to retype a code
+  // that was never the problem is how a person decides the authenticator app is
+  // broken. Send them where the fix actually is.
+  if (authStore.sessionExpired) {
+    await authStore.logout();
+    await router.push('/login');
+    return;
+  }
+
   // The second factor is cleared but a password rotation may still be pending.
   const nextStep = authStore.pendingStepPath();
   if (nextStep && nextStep !== '/mfa-verify') {

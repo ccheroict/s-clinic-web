@@ -22,11 +22,25 @@ import { ApiValidation, ApiUnauthorized, ApiForbidden, ApiServerError } from './
 export function classifyResponse(status: number, body?: unknown): ApiResult<unknown> {
   // 401 Unauthorized
   if (status === 401) {
-    return {
+    const problem = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+
+    const result: ApiResult<unknown> = {
       ok: false,
       status: 'unauthorized',
+      // The message stays generic. At the login endpoint the server answers
+      // uniformly on purpose, and repeating whatever it said would risk
+      // surfacing a difference it was careful not to make.
       message: 'Unauthorized: Please log in again',
     };
+
+    // The reason is a closed code, not free text, and the only one the server
+    // sends is SESSION_EXPIRED. Carried so a half-finished login that timed out
+    // can be told apart from a wrong code, which is the difference between
+    // "log in again" and "check the code".
+    if (typeof problem.reason === 'string') {
+      result.reason = problem.reason;
+    }
+    return result;
   }
 
   // 403 Forbidden

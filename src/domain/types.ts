@@ -173,6 +173,16 @@ export interface ApiUnauthorized {
   ok: false;
   status: 'unauthorized';
   message: string;
+
+  /**
+   * Why the call was refused, when the server distinguishes it.
+   *
+   * Currently only `SESSION_EXPIRED`, for a token that was real and has run
+   * out. Carried because a half-finished login that timed out is otherwise
+   * indistinguishable from a wrong code, and a user told their code is invalid
+   * will re-read a code that was never the problem.
+   */
+  reason?: string;
 }
 
 /**

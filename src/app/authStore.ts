@@ -255,6 +255,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function verifyMfa(code: string): Promise<boolean> {
     isLoading.value = true;
     error.value = null;
+    sessionExpired.value = false;
 
     try {
       const result = await getApiClient().post<LoginResponse>('/auth/mfa/verify', { code });
@@ -263,7 +264,9 @@ export const useAuthStore = defineStore('auth', () => {
         return applyLoginResponse(result.data);
       }
 
-      error.value = mfaErrorMessage(result.status);
+      const reason = 'reason' in result ? result.reason : undefined;
+      sessionExpired.value = reason === 'SESSION_EXPIRED';
+      error.value = mfaErrorMessage(result.status, reason);
       return false;
     } catch {
       error.value = 'An unexpected error occurred';
@@ -274,19 +277,36 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
-   * A wrong code and an expired interim token both come back 401, and the
-   * message stays vague on purpose: a wrong code counts toward the lockout, so
-   * it must not be distinguishable from a stale session.
+   * Why verification failed.
+   *
+   * A wrong code and an expired pending login both come back 401. These used to
+   * be reported identically, on the stated grounds that a wrong code counts
+   * toward the lockout and so must not be distinguishable from a stale session.
+   * That reasoning does not hold: the token in question is one the caller
+   * already has, and learning that their own token expired tells them nothing
+   * about the account they do not already know — the remedy is to log in again
+   * with the password they just used. Nothing about guessing codes gets easier.
+   *
+   * The cost of the vagueness was real, though. A pending token lives ten
+   * minutes, so anyone who leaves the code screen open over a break comes back
+   * to a dead token and is told their code is invalid. They re-read the code,
+   * type it again, get the same answer, and conclude the authenticator app is
+   * broken. The server now marks that case, and this reports it.
    */
-  function mfaErrorMessage(status: string): string {
+  function mfaErrorMessage(status: string, reason?: string): string {
     if (status === 'network') {
       return 'Connection error. Please check your network.';
     }
     if (status === 'unauthorized') {
-      return 'Invalid authentication code';
+      return reason === 'SESSION_EXPIRED'
+        ? 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.'
+        : 'Invalid authentication code';
     }
     return 'Could not verify the code. Please try again.';
   }
+
+  /** Whether the last failure was a dead token rather than a bad code. */
+  const sessionExpired = ref(false);
 
   /** Drop the recovery codes once the user confirms they have saved them. */
   function acknowledgeBackupCodes(): void {
@@ -414,6 +434,7 @@ export const useAuthStore = defineStore('auth', () => {
     mfaEnrolmentRequired,
     authSession,
     currentRole,
+    sessionExpired,
     // Actions
     login,
     beginMfaEnrolment,
