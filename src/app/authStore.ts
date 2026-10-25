@@ -91,6 +91,23 @@ export const useAuthStore = defineStore('auth', () => {
   /** The role requires a second factor and the account has not set one up yet. */
   const mfaEnrolmentRequired = computed(() => scope.value === 'ENROLL_MFA');
 
+  /**
+   * Whether the setup screen may be opened at all.
+   *
+   * Either the login flow is holding the account there, or someone fully signed
+   * in has chosen to set a second factor up. The second case was reachable on
+   * the server all along — {@code beginMfaEnrolment} accepts a full token — and
+   * blocked only by this screen, which redirected anyone whose scope was not
+   * ENROLL_MFA. The effect was that a receptionist, whose role does not require
+   * a second factor, had no way to turn one on even though the clinic benefits
+   * from them doing so.
+   *
+   * Whether the account already has a factor is not known here, and the server
+   * does not say. It does not need to: enrolment answers 409 if one exists, and
+   * the screen reports that.
+   */
+  const canSetUpMfa = computed(() => mfaEnrolmentRequired.value || isAuthenticated.value);
+
   const authSession = computed<AuthSession | null>(() => {
     if (!token.value || !role.value || scope.value !== 'FULL') {
       return null;
@@ -204,9 +221,17 @@ export const useAuthStore = defineStore('auth', () => {
         return result.data;
       }
 
-      error.value = result.status === 'network'
-        ? 'Connection error. Please check your network.'
-        : 'Could not start two-factor setup. Please log in again.';
+      if (result.status === 'network') {
+        error.value = 'Connection error. Please check your network.';
+      } else if (result.status === 'conflict') {
+        // The account already has a confirmed second factor. The server refuses
+        // to replace it, so that a stolen session cannot swap the factor out for
+        // one the thief controls. Its wording explains that; "please log in
+        // again" would send someone round a loop that changes nothing.
+        error.value = result.message;
+      } else {
+        error.value = 'Could not start two-factor setup. Please log in again.';
+      }
       return null;
     } catch {
       error.value = 'An unexpected error occurred';
@@ -307,6 +332,56 @@ export const useAuthStore = defineStore('auth', () => {
 
   /** Whether the last failure was a dead token rather than a bad code. */
   const sessionExpired = ref(false);
+
+  /**
+   * Replaces the recovery codes with a fresh set.
+   *
+   * Needs a current authentication code as well as the session. The codes
+   * outlive the session that made them and each one is a way past the second
+   * factor, so a session alone must not be able to mint them — otherwise a
+   * stolen session turns into permanent second-factor bypass. The server
+   * enforces this; asking for the code here is how the user is told why.
+   *
+   * On success the codes land in {@link backupCodes}, which is the same place
+   * enrolment puts them, so the display and the save-and-acknowledge step are
+   * shared rather than written twice.
+   *
+   * @returns true when a new set was issued
+   */
+  async function regenerateBackupCodes(code: string): Promise<boolean> {
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      const result = await getApiClient().post<{ backupCodes: string[] }>(
+        '/auth/mfa/backup-codes',
+        { code },
+      );
+
+      if (result.ok) {
+        backupCodes.value = result.data.backupCodes;
+        return true;
+      }
+
+      if (result.status === 'network') {
+        error.value = 'Connection error. Please check your network.';
+      } else if (result.status === 'unauthorized') {
+        // Either the code was wrong or there is no second factor to issue codes
+        // against. Both are 401, and both are answered the same way on purpose:
+        // wrong codes here count toward the lockout, so this endpoint must not
+        // become a place to tell a right code from a wrong one.
+        error.value = 'Mã không đúng, hoặc tài khoản chưa bật xác thực hai bước.';
+      } else {
+        error.value = 'Không cấp lại được mã dự phòng. Hãy thử lại.';
+      }
+      return false;
+    } catch {
+      error.value = 'An unexpected error occurred';
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
 
   /** Drop the recovery codes once the user confirms they have saved them. */
   function acknowledgeBackupCodes(): void {
@@ -435,11 +510,13 @@ export const useAuthStore = defineStore('auth', () => {
     authSession,
     currentRole,
     sessionExpired,
+    canSetUpMfa,
     // Actions
     login,
     beginMfaEnrolment,
     confirmMfaEnrolment,
     verifyMfa,
+    regenerateBackupCodes,
     acknowledgeBackupCodes,
     changePassword,
     logout,

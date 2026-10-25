@@ -136,6 +136,31 @@ function handleLogout() {
           :subtitle="authStore.currentRole ?? ''"
           class="nav-item"
         />
+        <!--
+          Both second-factor screens are offered to everyone signed in, without
+          checking whether the account already has a factor: the server does not
+          say, and it does not need to. Enrolment answers 409 if one exists and
+          the reissue screen refuses a wrong code, so each page reports its own
+          case. Listing them unconditionally is also what makes a receptionist
+          able to turn a second factor on at all — their role does not require
+          one, so nothing in the login flow would ever bring them here.
+        -->
+        <v-list-item
+          v-if="authStore.isAuthenticated"
+          prepend-icon="mdi-shield-key-outline"
+          title="Xác thực hai bước"
+          class="nav-item"
+          data-testid="nav-mfa-enroll"
+          @click="navigateTo('/mfa-enroll')"
+        />
+        <v-list-item
+          v-if="authStore.isAuthenticated"
+          prepend-icon="mdi-key-chain-variant"
+          title="Mã dự phòng"
+          class="nav-item"
+          data-testid="nav-recovery-codes"
+          @click="navigateTo('/mfa/recovery-codes')"
+        />
         <v-list-item
           v-if="authStore.isAuthenticated"
           prepend-icon="mdi-logout"

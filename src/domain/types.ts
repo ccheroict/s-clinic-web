@@ -206,6 +206,21 @@ export interface ApiForbidden {
 }
 
 /**
+ * Conflict with the current state of the thing being changed.
+ *
+ * The server's own wording is kept, because every 409 this backend sends is a
+ * sentence it wrote for a user to read: this patient already has a live record
+ * of that allergy, this account already has a second factor, this consent has
+ * already been given. A generic "an error occurred" would leave the person
+ * retrying an action that cannot succeed until they do something different.
+ */
+export interface ApiConflict {
+  ok: false;
+  status: 'conflict';
+  message: string;
+}
+
+/**
  * Server error result
  */
 export interface ApiServerError {
@@ -234,6 +249,7 @@ export type ApiResult<T> =
   | ApiValidation
   | ApiUnauthorized
   | ApiForbidden
+  | ApiConflict
   | ApiServerError
   | ApiNetworkError;
 

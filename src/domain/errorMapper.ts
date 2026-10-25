@@ -67,6 +67,25 @@ export function classifyResponse(status: number, body?: unknown): ApiResult<unkn
     return result;
   }
 
+  // 409 Conflict
+  //
+  // The server's wording is kept, as with 403. Every 409 from this backend is a
+  // sentence written for a user to read — this account already has a second
+  // factor, this allergy is already on file — and each one tells them what to do
+  // differently. Collapsing them into "an error occurred" leaves someone
+  // retrying an action that cannot succeed however many times they try it.
+  if (status === 409) {
+    const problem = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+
+    return {
+      ok: false,
+      status: 'conflict',
+      message: typeof problem.detail === 'string' && problem.detail.trim()
+        ? problem.detail
+        : 'This action conflicts with the current state of the record',
+    };
+  }
+
   // 400 Bad Request - Validation errors
   if (status === 400) {
     const fieldErrors = parseProblemDetailFromBody(body);

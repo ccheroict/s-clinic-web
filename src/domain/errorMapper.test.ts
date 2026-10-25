@@ -219,12 +219,25 @@ describe('errorMapper - Property 9: Phân loại mã trạng thái HTTP thành h
     });
 
     it('fc: mã lỗi chưa định nghĩa cụ thể cũng được xử lý', () => {
-      const undefinedCodes = [402, 405, 406, 407, 409, 410, 411, 412, 413, 414, 416, 417, 418, 421, 422, 423, 424, 425, 426, 428, 431, 451, 502, 506, 507, 508, 510, 511];
+      // 409 is no longer in this list: it has a variant of its own now. The
+      // backend uses it for states a user can act on - this account already has
+      // a second factor, this allergy is already on file - and collapsing those
+      // into a generic server error told them neither whose fault it was nor
+      // what to do instead.
+      const undefinedCodes = [402, 405, 406, 407, 410, 411, 412, 413, 414, 416, 417, 418, 421, 422, 423, 424, 425, 426, 428, 431, 451, 502, 506, 507, 508, 510, 511];
       undefinedCodes.forEach((status) => {
         const result = classifyResponse(status);
         expect(result.ok).toBe(false);
         expect(isServer(result) || isForbidden(result)).toBe(true);
       });
+    });
+
+    it('409 được phân loại riêng, giữ nguyên nội dung từ server', () => {
+      const result = classifyResponse(409, { detail: 'Đã có bản ghi còn hiệu lực' });
+
+      expect(result.ok).toBe(false);
+      expect(result.ok === false && result.status).toBe('conflict');
+      expect(isServer(result)).toBe(false);
     });
   });
 });

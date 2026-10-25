@@ -88,8 +88,8 @@
           </v-card-text>
 
           <v-card-actions>
-            <v-btn variant="text" :disabled="isLoading" @click="backToLogin">
-              Đăng nhập lại
+            <v-btn variant="text" :disabled="isLoading" @click="leave">
+              {{ voluntary ? 'Để sau' : 'Đăng nhập lại' }}
             </v-btn>
             <v-spacer />
             <v-btn
@@ -156,8 +156,16 @@ const codesSaved = ref(false);
 const isLoading = computed(() => authStore.isLoading);
 const showBackupCodes = computed(() => authStore.backupCodes.length > 0);
 
+/** Set up by choice rather than because the login flow demanded it. */
+const voluntary = computed(() => !authStore.mfaEnrolmentRequired);
+
 onMounted(async () => {
-  if (!authStore.mfaEnrolmentRequired) {
+  // Reachable two ways: the login flow parked the account here because its role
+  // requires a second factor, or someone already signed in chose to set one up.
+  // The second case used to be refused by this check even though the server
+  // allowed it, which left a receptionist — whose role does not require a second
+  // factor — with no way to turn one on.
+  if (!authStore.canSetUpMfa) {
     await router.replace('/login');
     return;
   }
@@ -237,11 +245,26 @@ function downloadBackupCodes(): void {
 async function finish(): Promise<void> {
   authStore.acknowledgeBackupCodes();
 
+  // Confirming enrolment issues a new session, so a voluntary enroller may still
+  // owe a password rotation. pendingStepPath answers for both cases.
   const nextStep = authStore.pendingStepPath();
   await router.push(nextStep ?? '/');
 }
 
-async function backToLogin(): Promise<void> {
+/**
+ * Leaves the screen.
+ *
+ * Someone parked here by the login flow has no session to keep, so they go back
+ * to the login page. Someone who came here voluntarily is already signed in, and
+ * logging them out for changing their mind about a setup screen would be a
+ * surprising thing to do to them.
+ */
+async function leave(): Promise<void> {
+  if (voluntary.value) {
+    await router.push('/');
+    return;
+  }
+
   await authStore.logout();
   await router.push('/login');
 }

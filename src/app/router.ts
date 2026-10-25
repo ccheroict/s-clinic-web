@@ -23,6 +23,7 @@ const MfaVerifyPage = () => import('../ui/MfaVerifyPage.vue');
 const PatientListPage = () => import('../ui/PatientListPage.vue');
 const PatientFormPage = () => import('../ui/PatientFormPage.vue');
 const ConsentCapturePage = () => import('../ui/ConsentCapturePage.vue');
+const MfaRecoveryCodesPage = () => import('../ui/MfaRecoveryCodesPage.vue');
 const AppointmentListPage = () => import('../ui/AppointmentListPage.vue');
 const TodayDashboard = () => import('../ui/TodayDashboard.vue');
 const NotFoundPage = () => import('../ui/NotFoundPage.vue');
@@ -96,6 +97,15 @@ const staticRoutes: RouteRecordRaw[] = [
     name: 'mfa-enroll',
     component: MfaEnrollPage,
     meta: { public: true, title: 'Thiết lập xác thực hai bước' },
+  },
+  // Not public, unlike the two MFA screens around it. Those are reached mid
+  // login, while a half-finished session is all the user has; this one is for
+  // someone already signed in, so the ordinary guard applies.
+  {
+    path: '/mfa/recovery-codes',
+    name: 'mfa-recovery-codes',
+    component: MfaRecoveryCodesPage,
+    meta: { title: 'Mã dự phòng' },
   },
   {
     path: '/mfa-verify',
